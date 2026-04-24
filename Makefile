@@ -1,6 +1,6 @@
 MYDIR ?= .
 
-PROJECT_NAME := agent-pet
+PROJECT_NAME := rent-crm
 
 DEPS_FILES := \
     pyproject.toml \
@@ -24,8 +24,8 @@ stop:
 msg ?=
 rev ?=
 make_migration:
-	docker exec -i agent-pet-api-1 poetry run alembic revision --autogenerate --rev-id "$(rev)" -m "$(msg)"
+	docker exec -i rent-crm-api-1 poetry run alembic revision --autogenerate --rev-id "$(rev)" -m "$(msg)"
 
 .PHONY: migrate
 migrate:
-	docker exec -i agent-pet-api-1 poetry run alembic upgrade head
+	docker exec -i rent-crm-api-1 poetry run alembic upgrade head
