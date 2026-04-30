@@ -18,14 +18,14 @@ run:
 
 .PHONY: stop
 stop:
-	docker compose down
+	docker compose --env-file envs/.env down
 
 .PHONY: make_migration
 msg ?=
 rev ?=
 make_migration:
-	docker exec -i rent-crm-api-1 poetry run alembic revision --autogenerate --rev-id "$(rev)" -m "$(msg)"
+	docker exec -i rent-crm-api-1 alembic revision --autogenerate --rev-id "$(rev)" -m "$(msg)"
 
 .PHONY: migrate
 migrate:
-	docker exec -i rent-crm-api-1 poetry run alembic upgrade head
+	docker exec -i rent-crm-api-1 alembic upgrade head

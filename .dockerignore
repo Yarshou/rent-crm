@@ -20,4 +20,3 @@ CLAUDE.md
 !README.md
 .dockerignore
 envs/
-app/data/
