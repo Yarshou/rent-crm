@@ -29,3 +29,7 @@ make_migration:
 .PHONY: migrate
 migrate:
 	docker exec -i rent-crm-api-1 alembic upgrade head
+
+.PHONY: seed_demo
+seed_demo:
+	docker exec -i rent-crm-api-1 python app/seed_demo.py

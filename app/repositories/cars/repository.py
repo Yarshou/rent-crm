@@ -3,24 +3,27 @@ from uuid import UUID
 
 from db.models import Car, CarPhoto, CarPricingTier, CarStatus
 from repositories import BaseRepository
-from sqlalchemy import delete, desc, select
+from schemas.cars import CarDTO, CarPhotoDTO, CarPricingTierDTO
+from sqlalchemy import delete, desc, func, or_, select
 
 __all__ = ["CarPhotoRepository", "CarPricingTierRepository", "CarRepository"]
 
 
-class CarRepository(BaseRepository[Car]):
+class CarRepository(BaseRepository[Car, CarDTO]):
     model = Car
+    dto = CarDTO
 
-    async def get_for_organization(self, *, organization_id: UUID, car_id: UUID) -> Car | None:
+    async def get_for_organization(self, *, organization_id: UUID, car_id: UUID) -> CarDTO | None:
         result = await self.session.execute(
             select(Car).where(
                 Car.id == car_id,
                 Car.organization_id == organization_id,
             ),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
-    async def get_for_organization_for_update(self, *, organization_id: UUID, car_id: UUID) -> Car | None:
+    async def get_for_organization_for_update(self, *, organization_id: UUID, car_id: UUID) -> CarDTO | None:
         result = await self.session.execute(
             select(Car)
             .where(
@@ -29,16 +32,18 @@ class CarRepository(BaseRepository[Car]):
             )
             .with_for_update(),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
-    async def get_by_license_plate(self, *, organization_id: UUID, license_plate: str) -> Car | None:
+    async def get_by_license_plate(self, *, organization_id: UUID, license_plate: str) -> CarDTO | None:
         result = await self.session.execute(
             select(Car).where(
                 Car.organization_id == organization_id,
                 Car.license_plate == license_plate,
             ),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
     async def list_for_organization(
         self,
@@ -48,7 +53,7 @@ class CarRepository(BaseRepository[Car]):
         city: str | None = None,
         offset: int = 0,
         limit: int | None = None,
-    ) -> list[Car]:
+    ) -> list[CarDTO]:
         statement = (
             select(Car)
             .where(Car.organization_id == organization_id)
@@ -64,9 +69,9 @@ class CarRepository(BaseRepository[Car]):
             statement = statement.limit(limit)
 
         result = await self.session.execute(statement)
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
-    async def list_by_ids_for_organization(self, *, organization_id: UUID, car_ids: list[UUID]) -> list[Car]:
+    async def list_by_ids_for_organization(self, *, organization_id: UUID, car_ids: list[UUID]) -> list[CarDTO]:
         if not car_ids:
             return []
 
@@ -78,50 +83,83 @@ class CarRepository(BaseRepository[Car]):
             )
             .order_by(Car.brand, Car.model, Car.license_plate),
         )
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
-    async def set_status(self, car: Car, status: CarStatus) -> Car:
-        car.status = status
-        return car
+    async def search_for_organization(
+        self,
+        organization_id: UUID,
+        query: str,
+        *,
+        limit: int = 10,
+    ) -> list[CarDTO]:
+        pattern = f"%{query}%"
+        result = await self.session.execute(
+            select(Car)
+            .where(
+                Car.organization_id == organization_id,
+                or_(
+                    func.concat(Car.brand, " ", Car.model).ilike(pattern),
+                    Car.license_plate.ilike(pattern),
+                ),
+            )
+            .order_by(Car.brand, Car.model)
+            .limit(limit),
+        )
+        return self._to_dtos(result.scalars().all())
 
-    async def update_mileage(self, car: Car, mileage: int) -> Car:
-        car.mileage = mileage
-        return car
+    async def set_status(self, car_id: UUID, status: CarStatus) -> CarDTO | None:
+        instance = await self.session.get(Car, car_id)
+        if instance is None:
+            return None
+        instance.status = status
+        await self.session.flush()
+        return self._to_dto(instance)
+
+    async def update_mileage(self, car_id: UUID, mileage: int) -> CarDTO | None:
+        instance = await self.session.get(Car, car_id)
+        if instance is None:
+            return None
+        instance.mileage = mileage
+        await self.session.flush()
+        return self._to_dto(instance)
 
 
-class CarPhotoRepository(BaseRepository[CarPhoto]):
+class CarPhotoRepository(BaseRepository[CarPhoto, CarPhotoDTO]):
     model = CarPhoto
+    dto = CarPhotoDTO
 
-    async def list_for_car(self, car_id: UUID) -> list[CarPhoto]:
+    async def list_for_car(self, car_id: UUID) -> list[CarPhotoDTO]:
         result = await self.session.execute(
             select(CarPhoto).where(CarPhoto.car_id == car_id).order_by(CarPhoto.position, CarPhoto.created_at),
         )
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
     async def delete_for_car(self, car_id: UUID) -> int:
         result = await self.session.execute(delete(CarPhoto).where(CarPhoto.car_id == car_id))
         return result.rowcount
 
 
-class CarPricingTierRepository(BaseRepository[CarPricingTier]):
+class CarPricingTierRepository(BaseRepository[CarPricingTier, CarPricingTierDTO]):
     model = CarPricingTier
+    dto = CarPricingTierDTO
 
-    async def list_for_car(self, car_id: UUID) -> list[CarPricingTier]:
+    async def list_for_car(self, car_id: UUID) -> list[CarPricingTierDTO]:
         result = await self.session.execute(
             select(CarPricingTier).where(CarPricingTier.car_id == car_id).order_by(CarPricingTier.min_days),
         )
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
-    async def get_by_min_days(self, *, car_id: UUID, min_days: int) -> CarPricingTier | None:
+    async def get_by_min_days(self, *, car_id: UUID, min_days: int) -> CarPricingTierDTO | None:
         result = await self.session.execute(
             select(CarPricingTier).where(
                 CarPricingTier.car_id == car_id,
                 CarPricingTier.min_days == min_days,
             ),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
-    async def get_applicable_for_duration(self, *, car_id: UUID, rental_days: int) -> CarPricingTier | None:
+    async def get_applicable_for_duration(self, *, car_id: UUID, rental_days: int) -> CarPricingTierDTO | None:
         result = await self.session.execute(
             select(CarPricingTier)
             .where(
@@ -131,11 +169,16 @@ class CarPricingTierRepository(BaseRepository[CarPricingTier]):
             .order_by(desc(CarPricingTier.min_days))
             .limit(1),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
-    async def set_daily_rate(self, pricing_tier: CarPricingTier, daily_rate: Decimal) -> CarPricingTier:
-        pricing_tier.daily_rate = daily_rate
-        return pricing_tier
+    async def set_daily_rate(self, pricing_tier_id: UUID, daily_rate: Decimal) -> CarPricingTierDTO | None:
+        instance = await self.session.get(CarPricingTier, pricing_tier_id)
+        if instance is None:
+            return None
+        instance.daily_rate = daily_rate
+        await self.session.flush()
+        return self._to_dto(instance)
 
     async def delete_for_car(self, car_id: UUID) -> int:
         result = await self.session.execute(delete(CarPricingTier).where(CarPricingTier.car_id == car_id))

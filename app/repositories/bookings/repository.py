@@ -3,26 +3,29 @@ from uuid import UUID
 
 from db.models import Booking, BookingStatus
 from repositories import BaseRepository
-from sqlalchemy import func, select
+from schemas.bookings import BookingDTO
+from sqlalchemy import func, or_, select
 
 __all__ = ["BookingRepository"]
 
 BLOCKING_BOOKING_STATUSES = [BookingStatus.planned, BookingStatus.active]
 
 
-class BookingRepository(BaseRepository[Booking]):
+class BookingRepository(BaseRepository[Booking, BookingDTO]):
     model = Booking
+    dto = BookingDTO
 
-    async def get_for_organization(self, *, organization_id: UUID, booking_id: UUID) -> Booking | None:
+    async def get_for_organization(self, *, organization_id: UUID, booking_id: UUID) -> BookingDTO | None:
         result = await self.session.execute(
             select(Booking).where(
                 Booking.id == booking_id,
                 Booking.organization_id == organization_id,
             ),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
-    async def get_for_organization_for_update(self, *, organization_id: UUID, booking_id: UUID) -> Booking | None:
+    async def get_for_organization_for_update(self, *, organization_id: UUID, booking_id: UUID) -> BookingDTO | None:
         result = await self.session.execute(
             select(Booking)
             .where(
@@ -31,7 +34,8 @@ class BookingRepository(BaseRepository[Booking]):
             )
             .with_for_update(),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
     async def list_for_organization(
         self,
@@ -43,7 +47,7 @@ class BookingRepository(BaseRepository[Booking]):
         date_to: date | None = None,
         offset: int = 0,
         limit: int | None = None,
-    ) -> list[Booking]:
+    ) -> list[BookingDTO]:
         statement = (
             select(Booking)
             .where(Booking.organization_id == organization_id)
@@ -63,7 +67,7 @@ class BookingRepository(BaseRepository[Booking]):
             statement = statement.limit(limit)
 
         result = await self.session.execute(statement)
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
     async def list_for_car(
         self,
@@ -73,7 +77,7 @@ class BookingRepository(BaseRepository[Booking]):
         statuses: list[BookingStatus] | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
-    ) -> list[Booking]:
+    ) -> list[BookingDTO]:
         return await self.list_for_organization(
             organization_id,
             car_ids=[car_id],
@@ -82,7 +86,7 @@ class BookingRepository(BaseRepository[Booking]):
             date_to=date_to,
         )
 
-    async def list_active_for_car(self, *, organization_id: UUID, car_id: UUID) -> list[Booking]:
+    async def list_active_for_car(self, *, organization_id: UUID, car_id: UUID) -> list[BookingDTO]:
         return await self.list_for_car(
             organization_id=organization_id,
             car_id=car_id,
@@ -98,7 +102,7 @@ class BookingRepository(BaseRepository[Booking]):
         end_date: date,
         statuses: list[BookingStatus] | None = None,
         exclude_booking_id: UUID | None = None,
-    ) -> list[Booking]:
+    ) -> list[BookingDTO]:
         statement = select(Booking).where(
             Booking.organization_id == organization_id,
             Booking.car_id == car_id,
@@ -111,7 +115,7 @@ class BookingRepository(BaseRepository[Booking]):
             statement = statement.where(Booking.id != exclude_booking_id)
 
         result = await self.session.execute(statement.order_by(Booking.start_date, Booking.end_date))
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
     async def has_overlapping_booking(
         self,
@@ -136,6 +140,28 @@ class BookingRepository(BaseRepository[Booking]):
 
         result = await self.session.execute(statement.limit(1))
         return result.scalar_one_or_none() is not None
+
+    async def search_clients_for_organization(
+        self,
+        organization_id: UUID,
+        query: str,
+        *,
+        limit: int = 10,
+    ) -> list[tuple[str, str]]:
+        pattern = f"%{query}%"
+        result = await self.session.execute(
+            select(Booking.renter_name, Booking.renter_phone)
+            .where(
+                Booking.organization_id == organization_id,
+                or_(
+                    Booking.renter_name.ilike(pattern),
+                    Booking.renter_phone.ilike(pattern),
+                ),
+            )
+            .distinct()
+            .limit(limit),
+        )
+        return [(row.renter_name, row.renter_phone) for row in result.all()]
 
     async def count_active_for_car(self, *, organization_id: UUID, car_id: UUID) -> int:
         result = await self.session.execute(

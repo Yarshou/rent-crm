@@ -7,6 +7,7 @@ from pydantic import BaseModel, HttpUrl, PositiveInt
 from pydantic_settings import BaseSettings
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse
+from starlette.staticfiles import StaticFiles
 from uvicorn.middleware.message_logger import MessageLoggerMiddleware
 from yaml import safe_load
 
@@ -54,7 +55,16 @@ def setup_docs(app: FastAPI) -> None:
         )
 
 
+def setup_media(app: FastAPI) -> None:
+    app.mount(
+        settings.MEDIA_URL,
+        StaticFiles(directory=settings.MEDIA_ROOT, check_dir=False),
+        name="media",
+    )
+
+
 def setup(app: FastAPI) -> None:
     middleware_settings = MiddlewareSettings.load()
     setup_middlewares(app=app, middleware_settings=middleware_settings)
+    setup_media(app=app)
     setup_docs(app=app)

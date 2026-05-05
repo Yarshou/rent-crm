@@ -3,22 +3,30 @@ from uuid import UUID
 
 from db.models import MaintenanceRecord, MaintenanceSchedule, ServiceType
 from repositories import BaseRepository
+from schemas.maintenance import MaintenanceRecordDTO, MaintenanceScheduleDTO
 from sqlalchemy import select
 
 __all__ = ["MaintenanceRecordRepository", "MaintenanceScheduleRepository"]
 
 
-class MaintenanceRecordRepository(BaseRepository[MaintenanceRecord]):
+class MaintenanceRecordRepository(BaseRepository[MaintenanceRecord, MaintenanceRecordDTO]):
     model = MaintenanceRecord
+    dto = MaintenanceRecordDTO
 
-    async def get_for_organization(self, *, organization_id: UUID, maintenance_record_id: UUID) -> MaintenanceRecord | None:
+    async def get_for_organization(
+        self,
+        *,
+        organization_id: UUID,
+        maintenance_record_id: UUID,
+    ) -> MaintenanceRecordDTO | None:
         result = await self.session.execute(
             select(MaintenanceRecord).where(
                 MaintenanceRecord.id == maintenance_record_id,
                 MaintenanceRecord.organization_id == organization_id,
             ),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
     async def list_for_organization(
         self,
@@ -30,7 +38,7 @@ class MaintenanceRecordRepository(BaseRepository[MaintenanceRecord]):
         date_to: date | None = None,
         offset: int = 0,
         limit: int | None = None,
-    ) -> list[MaintenanceRecord]:
+    ) -> list[MaintenanceRecordDTO]:
         statement = (
             select(MaintenanceRecord)
             .where(MaintenanceRecord.organization_id == organization_id)
@@ -50,7 +58,7 @@ class MaintenanceRecordRepository(BaseRepository[MaintenanceRecord]):
             statement = statement.limit(limit)
 
         result = await self.session.execute(statement)
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
     async def list_for_car(
         self,
@@ -58,7 +66,7 @@ class MaintenanceRecordRepository(BaseRepository[MaintenanceRecord]):
         organization_id: UUID,
         car_id: UUID,
         service_types: list[ServiceType] | None = None,
-    ) -> list[MaintenanceRecord]:
+    ) -> list[MaintenanceRecordDTO]:
         return await self.list_for_organization(
             organization_id,
             car_ids=[car_id],
@@ -66,22 +74,24 @@ class MaintenanceRecordRepository(BaseRepository[MaintenanceRecord]):
         )
 
 
-class MaintenanceScheduleRepository(BaseRepository[MaintenanceSchedule]):
+class MaintenanceScheduleRepository(BaseRepository[MaintenanceSchedule, MaintenanceScheduleDTO]):
     model = MaintenanceSchedule
+    dto = MaintenanceScheduleDTO
 
     async def get_for_organization(
         self,
         *,
         organization_id: UUID,
         maintenance_schedule_id: UUID,
-    ) -> MaintenanceSchedule | None:
+    ) -> MaintenanceScheduleDTO | None:
         result = await self.session.execute(
             select(MaintenanceSchedule).where(
                 MaintenanceSchedule.id == maintenance_schedule_id,
                 MaintenanceSchedule.organization_id == organization_id,
             ),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
     async def list_for_organization(
         self,
@@ -92,7 +102,7 @@ class MaintenanceScheduleRepository(BaseRepository[MaintenanceSchedule]):
         is_completed: bool | None = None,
         offset: int = 0,
         limit: int | None = None,
-    ) -> list[MaintenanceSchedule]:
+    ) -> list[MaintenanceScheduleDTO]:
         statement = (
             select(MaintenanceSchedule)
             .where(MaintenanceSchedule.organization_id == organization_id)
@@ -115,16 +125,16 @@ class MaintenanceScheduleRepository(BaseRepository[MaintenanceSchedule]):
             statement = statement.limit(limit)
 
         result = await self.session.execute(statement)
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
-    async def list_open_for_car(self, *, organization_id: UUID, car_id: UUID) -> list[MaintenanceSchedule]:
+    async def list_open_for_car(self, *, organization_id: UUID, car_id: UUID) -> list[MaintenanceScheduleDTO]:
         return await self.list_for_organization(
             organization_id,
             car_ids=[car_id],
             is_completed=False,
         )
 
-    async def list_due_by_date(self, *, organization_id: UUID, due_date: date) -> list[MaintenanceSchedule]:
+    async def list_due_by_date(self, *, organization_id: UUID, due_date: date) -> list[MaintenanceScheduleDTO]:
         result = await self.session.execute(
             select(MaintenanceSchedule)
             .where(
@@ -135,7 +145,7 @@ class MaintenanceScheduleRepository(BaseRepository[MaintenanceSchedule]):
             )
             .order_by(MaintenanceSchedule.scheduled_date, MaintenanceSchedule.created_at),
         )
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
     async def list_due_by_mileage(
         self,
@@ -143,7 +153,7 @@ class MaintenanceScheduleRepository(BaseRepository[MaintenanceSchedule]):
         organization_id: UUID,
         car_id: UUID,
         mileage: int,
-    ) -> list[MaintenanceSchedule]:
+    ) -> list[MaintenanceScheduleDTO]:
         result = await self.session.execute(
             select(MaintenanceSchedule)
             .where(
@@ -155,4 +165,4 @@ class MaintenanceScheduleRepository(BaseRepository[MaintenanceSchedule]):
             )
             .order_by(MaintenanceSchedule.scheduled_mileage, MaintenanceSchedule.created_at),
         )
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())

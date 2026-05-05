@@ -3,22 +3,30 @@ from uuid import UUID
 
 from db.models import InsurancePayment
 from repositories import BaseRepository
+from schemas.insurance import InsurancePaymentDTO
 from sqlalchemy import select
 
 __all__ = ["InsurancePaymentRepository"]
 
 
-class InsurancePaymentRepository(BaseRepository[InsurancePayment]):
+class InsurancePaymentRepository(BaseRepository[InsurancePayment, InsurancePaymentDTO]):
     model = InsurancePayment
+    dto = InsurancePaymentDTO
 
-    async def get_for_organization(self, *, organization_id: UUID, insurance_payment_id: UUID) -> InsurancePayment | None:
+    async def get_for_organization(
+        self,
+        *,
+        organization_id: UUID,
+        insurance_payment_id: UUID,
+    ) -> InsurancePaymentDTO | None:
         result = await self.session.execute(
             select(InsurancePayment).where(
                 InsurancePayment.id == insurance_payment_id,
                 InsurancePayment.organization_id == organization_id,
             ),
         )
-        return result.scalar_one_or_none()
+        instance = result.scalar_one_or_none()
+        return self._to_dto(instance) if instance is not None else None
 
     async def list_for_organization(
         self,
@@ -31,7 +39,7 @@ class InsurancePaymentRepository(BaseRepository[InsurancePayment]):
         coverage_to: date | None = None,
         offset: int = 0,
         limit: int | None = None,
-    ) -> list[InsurancePayment]:
+    ) -> list[InsurancePaymentDTO]:
         statement = (
             select(InsurancePayment)
             .where(InsurancePayment.organization_id == organization_id)
@@ -53,7 +61,7 @@ class InsurancePaymentRepository(BaseRepository[InsurancePayment]):
             statement = statement.limit(limit)
 
         result = await self.session.execute(statement)
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())
 
     async def list_for_car(
         self,
@@ -62,7 +70,7 @@ class InsurancePaymentRepository(BaseRepository[InsurancePayment]):
         car_id: UUID,
         coverage_from: date | None = None,
         coverage_to: date | None = None,
-    ) -> list[InsurancePayment]:
+    ) -> list[InsurancePaymentDTO]:
         return await self.list_for_organization(
             organization_id,
             car_ids=[car_id],
@@ -70,7 +78,7 @@ class InsurancePaymentRepository(BaseRepository[InsurancePayment]):
             coverage_to=coverage_to,
         )
 
-    async def list_active_on_date(self, *, organization_id: UUID, target_date: date) -> list[InsurancePayment]:
+    async def list_active_on_date(self, *, organization_id: UUID, target_date: date) -> list[InsurancePaymentDTO]:
         result = await self.session.execute(
             select(InsurancePayment)
             .where(
@@ -80,4 +88,4 @@ class InsurancePaymentRepository(BaseRepository[InsurancePayment]):
             )
             .order_by(InsurancePayment.period_end, InsurancePayment.payment_date),
         )
-        return list(result.scalars().all())
+        return self._to_dtos(result.scalars().all())

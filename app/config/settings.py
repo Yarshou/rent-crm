@@ -23,12 +23,16 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: SecretStr
 
-    # JWT_ACCESS_SECRET_KEY: SecretStr
-    # JWT_ACCESS_ALGORITHM: str
-    # JWT_ACCESS_EXPIRE: str
-    #
-    # JWT_REFRESH_ALGORITHM: str
-    # JWT_REFRESH_EXPIRE: str
+    JWT_ACCESS_SECRET_KEY: SecretStr
+    JWT_ACCESS_ALGORITHM: str
+    JWT_ACCESS_EXPIRE: str
+
+    JWT_REFRESH_ALGORITHM: str
+    JWT_REFRESH_EXPIRE: str
+
+    MEDIA_ROOT: Path = BASE_DIR / "media"
+    MEDIA_URL: str = "/media"
+    MEDIA_MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
 
 
 settings = Settings()

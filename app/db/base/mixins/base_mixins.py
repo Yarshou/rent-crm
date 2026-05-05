@@ -1,7 +1,7 @@
 import uuid
 
+from db.base.utils import now
 from sqlalchemy import TIMESTAMP, Column, Uuid
-from sqlalchemy.sql.functions import now
 
 __all__ = ["BaseMixin"]
 
