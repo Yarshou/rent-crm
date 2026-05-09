@@ -1,3 +1,3 @@
-from .repository import CarPhotoRepository, CarPricingTierRepository, CarRepository
+from .repository import CarPhotoRepository, CarPricingTierRepository, CarRepairPeriodRepository, CarRepository
 
-__all__ = ["CarPhotoRepository", "CarPricingTierRepository", "CarRepository"]
+__all__ = ["CarPhotoRepository", "CarPricingTierRepository", "CarRepairPeriodRepository", "CarRepository"]

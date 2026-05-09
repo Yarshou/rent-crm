@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
+from db.models import Currency
 from schemas.base import MutableDTO
 
 __all__ = [
@@ -50,6 +51,7 @@ class InsurancePaymentCreateInput(MutableDTO):
     period_start: date
     period_end: date
     amount: Decimal
+    currency: Currency
     provider: str | None = None
     notes: str | None = None
 
@@ -61,6 +63,7 @@ class InsurancePaymentUpdateInput(MutableDTO):
     period_start: date | None = None
     period_end: date | None = None
     amount: Decimal | None = None
+    currency: Currency | None = None
     provider: str | None = None
     notes: str | None = None
 

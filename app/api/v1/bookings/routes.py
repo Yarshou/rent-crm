@@ -78,6 +78,7 @@ async def create_booking(
             renter_name=payload.renter_name,
             renter_phone=payload.renter_phone,
             total_amount=payload.total_amount,
+            currency=payload.currency,
             notes=payload.notes,
         ),
     )
@@ -90,7 +91,7 @@ async def calculate_booking_total(
     organization: Annotated[OrganizationDTO, Depends(get_current_organization)],
     service: Annotated[BookingService, Depends(get_booking_service)],
 ) -> AmountResponse:
-    total_amount = await service.calculate_total_amount(
+    total_amount, currency = await service.calculate_total_amount(
         BookingTotalInput(
             organization_id=organization.id,
             car_id=payload.car_id,
@@ -98,7 +99,7 @@ async def calculate_booking_total(
             end_date=payload.end_date,
         ),
     )
-    return AmountResponse(total_amount=total_amount)
+    return AmountResponse(total_amount=total_amount, currency=currency)
 
 
 @router.get("/{booking_id}", response_model=BookingResponse)
@@ -143,6 +144,7 @@ async def reschedule_booking(
             end_date=payload.end_date,
             car_id=payload.car_id,
             total_amount=payload.total_amount,
+            currency=payload.currency,
             recalculate_total=payload.recalculate_total,
         ),
     )

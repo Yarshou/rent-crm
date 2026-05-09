@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from db.models import BookingStatus
+from db.models import BookingStatus, Currency
 from pydantic import BaseModel, Field
 from schemas.base.common import BaseEntityResponse
 
@@ -24,6 +24,7 @@ class BookingCreateRequest(BaseModel):
     renter_name: str = Field(min_length=1, max_length=255)
     renter_phone: str = Field(min_length=1, max_length=32)
     total_amount: Decimal | None = Field(default=None, ge=0)
+    currency: Currency | None = None
     notes: str | None = None
 
 
@@ -31,6 +32,7 @@ class BookingUpdateDetailsRequest(BaseModel):
     renter_name: str = Field(default=None, min_length=1, max_length=255)
     renter_phone: str = Field(default=None, min_length=1, max_length=32)
     total_amount: Decimal = Field(default=None, ge=0)
+    currency: Currency | None = None
     notes: str | None = None
 
 
@@ -39,6 +41,7 @@ class BookingRescheduleRequest(BaseModel):
     end_date: date
     car_id: UUID | None = None
     total_amount: Decimal | None = Field(default=None, ge=0)
+    currency: Currency | None = None
     recalculate_total: bool = True
 
 
@@ -64,6 +67,7 @@ class BookingResponse(BaseEntityResponse):
     renter_name: str
     renter_phone: str
     total_amount: Decimal
+    currency: Currency
     pickup_mileage: int | None
     return_mileage: int | None
     status: BookingStatus

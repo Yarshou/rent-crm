@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from db.models import BookingStatus
+from db.models import BookingStatus, Currency
 from schemas.base import MutableDTO
 
 __all__ = [
@@ -49,6 +49,7 @@ class BookingCreateInput(MutableDTO):
     renter_name: str
     renter_phone: str
     total_amount: Decimal | None = None
+    currency: Currency | None = None
     notes: str | None = None
 
 
@@ -58,6 +59,7 @@ class BookingUpdateDetailsInput(MutableDTO):
     renter_name: str | None = None
     renter_phone: str | None = None
     total_amount: Decimal | None = None
+    currency: Currency | None = None
     notes: str | None = None
 
 
@@ -68,6 +70,7 @@ class BookingRescheduleInput(MutableDTO):
     end_date: date
     car_id: UUID | None = None
     total_amount: Decimal | None = None
+    currency: Currency | None = None
     recalculate_total: bool = True
 
 

@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from db.models import ServiceType
+from db.models import Currency, ServiceType
 from pydantic import BaseModel, Field
 from schemas.base.common import BaseEntityResponse
 
@@ -24,6 +24,7 @@ class MaintenanceRecordCreateRequest(BaseModel):
     description: str = Field(min_length=1)
     mileage_at_service: int = Field(ge=0)
     cost: Decimal = Field(ge=0)
+    currency: Currency
     provider: str | None = Field(default=None, max_length=255)
     complete_schedule_id: UUID | None = None
 
@@ -34,6 +35,7 @@ class MaintenanceRecordUpdateRequest(BaseModel):
     description: str = Field(default=None, min_length=1)
     mileage_at_service: int = Field(default=None, ge=0)
     cost: Decimal = Field(default=None, ge=0)
+    currency: Currency | None = None
     provider: str | None = Field(default=None, max_length=255)
 
 
@@ -64,6 +66,7 @@ class MaintenanceRecordResponse(BaseEntityResponse):
     description: str
     mileage_at_service: int
     cost: Decimal
+    currency: Currency
     provider: str | None
 
 

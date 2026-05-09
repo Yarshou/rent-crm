@@ -1,6 +1,7 @@
 import enum
 
 from db.base.models import Base
+from db.models.common import Currency
 from sqlalchemy import Column, Date, Enum, ForeignKey, Integer, Numeric, String, Text, Uuid
 
 __all__ = ["Booking", "BookingStatus"]
@@ -23,6 +24,7 @@ class Booking(Base):
     renter_name = Column(String(255), nullable=False)
     renter_phone = Column(String(32), nullable=False)
     total_amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(Enum(Currency, name="currency"), nullable=False)
     pickup_mileage = Column(Integer, nullable=True)
     return_mileage = Column(Integer, nullable=True)
     status = Column(Enum(BookingStatus, name="booking_status"), nullable=False, default=BookingStatus.planned)

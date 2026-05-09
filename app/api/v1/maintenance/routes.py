@@ -80,6 +80,7 @@ async def create_maintenance_record(
             description=payload.description,
             mileage_at_service=payload.mileage_at_service,
             cost=payload.cost,
+            currency=payload.currency,
             provider=payload.provider,
             complete_schedule_id=payload.complete_schedule_id,
         ),

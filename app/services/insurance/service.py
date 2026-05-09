@@ -78,6 +78,7 @@ class InsuranceService:
                 period_start=input.period_start,
                 period_end=input.period_end,
                 amount=input.amount,
+                currency=input.currency,
                 provider=input.provider,
                 notes=input.notes,
             )

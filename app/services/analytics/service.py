@@ -4,7 +4,7 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
-from db.models import BookingStatus, CarStatus
+from db.models import BookingStatus, CarStatus, Currency
 from schemas import (
     BookingDTO,
     BookingSummaryResponse,
@@ -35,6 +35,7 @@ _MONEY_ZERO = Decimal("0.00")
 _RATIO_ZERO = Decimal("0.00")
 _ACTIVE_PLANNED_STATUSES = [BookingStatus.active, BookingStatus.planned]
 _VISIBLE_BOOKING_STATUSES = [BookingStatus.active, BookingStatus.planned, BookingStatus.completed]
+_CALENDAR_BOOKING_STATUSES = [BookingStatus.active, BookingStatus.planned, BookingStatus.completed, BookingStatus.cancelled]
 
 
 class AnalyticsService:
@@ -73,12 +74,15 @@ class AnalyticsService:
             )
 
         fleet = self._build_fleet_summary(cars)
-        income_mtd = self._sum_booking_income(
+        income_mtd_usd, income_mtd_gel = self._sum_booking_income_by_currency(
             booking
             for booking in visible_bookings_mtd
             if month_start <= booking.start_date <= target_date and booking.status != BookingStatus.cancelled
         )
-        expenses_mtd = self._sum_maintenance_costs(maintenance_mtd) + self._sum_insurance_costs(insurance_mtd)
+        maint_usd, maint_gel = self._sum_maintenance_costs_by_currency(maintenance_mtd)
+        ins_usd, ins_gel = self._sum_insurance_costs_by_currency(insurance_mtd)
+        expenses_mtd_usd = maint_usd + ins_usd
+        expenses_mtd_gel = maint_gel + ins_gel
         bookings_on_date = [*active_bookings, *planned_bookings]
         occupied_car_ids = {
             booking.car_id
@@ -105,9 +109,12 @@ class AnalyticsService:
                 overdue_returns=sum(1 for booking in active_bookings if booking.end_date < target_date),
             ),
             money=MoneySummaryResponse(
-                income_mtd=income_mtd,
-                expenses_mtd=expenses_mtd,
-                net_mtd=income_mtd - expenses_mtd,
+                income_mtd_usd=income_mtd_usd,
+                income_mtd_gel=income_mtd_gel,
+                expenses_mtd_usd=expenses_mtd_usd,
+                expenses_mtd_gel=expenses_mtd_gel,
+                net_mtd_usd=income_mtd_usd - expenses_mtd_usd,
+                net_mtd_gel=income_mtd_gel - expenses_mtd_gel,
             ),
             occupancy=self._ratio(len(occupied_car_ids), fleet.total),
         )
@@ -119,7 +126,12 @@ class AnalyticsService:
             cars = await uow.cars.list_for_organization(input.organization_id)
             bookings = await uow.bookings.list_for_organization(
                 input.organization_id,
-                statuses=_VISIBLE_BOOKING_STATUSES,
+                statuses=_CALENDAR_BOOKING_STATUSES,
+                date_from=input.date_from,
+                date_to=input.date_to,
+            )
+            repair_periods = await uow.car_repair_periods.list_for_organization_in_range(
+                input.organization_id,
                 date_from=input.date_from,
                 date_to=input.date_to,
             )
@@ -129,7 +141,7 @@ class AnalyticsService:
             date_to=input.date_to,
             cars=cars,
             bookings=bookings,
-            repair_periods=[],
+            repair_periods=repair_periods,
         )
 
     async def get_car_details(self, input: CarDetailsInput) -> CarDetailsResponse:
@@ -238,32 +250,53 @@ class AnalyticsService:
         insurance_payments: list[InsurancePaymentDTO],
         year: int,
     ) -> list[MonthlyReportResponse]:
-        monthly_income: dict[int, Decimal] = defaultdict(lambda: _MONEY_ZERO)
-        monthly_maintenance: dict[int, Decimal] = defaultdict(lambda: _MONEY_ZERO)
-        monthly_insurance: dict[int, Decimal] = defaultdict(lambda: _MONEY_ZERO)
+        monthly_income_usd: dict[int, Decimal] = defaultdict(lambda: _MONEY_ZERO)
+        monthly_income_gel: dict[int, Decimal] = defaultdict(lambda: _MONEY_ZERO)
+        monthly_maintenance_usd: dict[int, Decimal] = defaultdict(lambda: _MONEY_ZERO)
+        monthly_maintenance_gel: dict[int, Decimal] = defaultdict(lambda: _MONEY_ZERO)
+        monthly_insurance_usd: dict[int, Decimal] = defaultdict(lambda: _MONEY_ZERO)
+        monthly_insurance_gel: dict[int, Decimal] = defaultdict(lambda: _MONEY_ZERO)
 
         for booking in bookings:
             if booking.status != BookingStatus.cancelled and booking.start_date.year == year:
-                monthly_income[booking.start_date.month] += Decimal(booking.total_amount)
+                if booking.currency == Currency.USD:
+                    monthly_income_usd[booking.start_date.month] += Decimal(booking.total_amount)
+                else:
+                    monthly_income_gel[booking.start_date.month] += Decimal(booking.total_amount)
         for record in maintenance_records:
-            monthly_maintenance[record.service_date.month] += Decimal(record.cost)
+            if record.currency == Currency.USD:
+                monthly_maintenance_usd[record.service_date.month] += Decimal(record.cost)
+            else:
+                monthly_maintenance_gel[record.service_date.month] += Decimal(record.cost)
         for payment in insurance_payments:
-            monthly_insurance[payment.payment_date.month] += Decimal(payment.amount)
+            if payment.currency == Currency.USD:
+                monthly_insurance_usd[payment.payment_date.month] += Decimal(payment.amount)
+            else:
+                monthly_insurance_gel[payment.payment_date.month] += Decimal(payment.amount)
 
         reports = []
         for month in range(1, 13):
-            income = monthly_income[month]
-            maintenance = monthly_maintenance[month]
-            insurance = monthly_insurance[month]
-            expenses = maintenance + insurance
+            income_usd = monthly_income_usd[month]
+            income_gel = monthly_income_gel[month]
+            maint_usd = monthly_maintenance_usd[month]
+            maint_gel = monthly_maintenance_gel[month]
+            ins_usd = monthly_insurance_usd[month]
+            ins_gel = monthly_insurance_gel[month]
+            expenses_usd = maint_usd + ins_usd
+            expenses_gel = maint_gel + ins_gel
             reports.append(
                 MonthlyReportResponse(
                     month=month,
-                    income=income,
-                    maintenance_expenses=maintenance,
-                    insurance_expenses=insurance,
-                    expenses=expenses,
-                    net=income - expenses,
+                    income_usd=income_usd,
+                    income_gel=income_gel,
+                    maintenance_expenses_usd=maint_usd,
+                    maintenance_expenses_gel=maint_gel,
+                    insurance_expenses_usd=ins_usd,
+                    insurance_expenses_gel=ins_gel,
+                    expenses_usd=expenses_usd,
+                    expenses_gel=expenses_gel,
+                    net_usd=income_usd - expenses_usd,
+                    net_gel=income_gel - expenses_gel,
                 ),
             )
         return reports
@@ -271,12 +304,15 @@ class AnalyticsService:
     def _build_car_ranking(self, *, cars: list[CarDTO], bookings: list[BookingDTO]) -> list[CarRevenueRankResponse]:
         cars_by_id = {car.id: car for car in cars}
         stats: dict[UUID, dict[str, Decimal | int]] = defaultdict(
-            lambda: {"income": _MONEY_ZERO, "booking_count": 0, "booked_days": 0},
+            lambda: {"income_usd": _MONEY_ZERO, "income_gel": _MONEY_ZERO, "booking_count": 0, "booked_days": 0},
         )
         for booking in bookings:
             if booking.status == BookingStatus.cancelled or booking.car_id not in cars_by_id:
                 continue
-            stats[booking.car_id]["income"] += Decimal(booking.total_amount)
+            if booking.currency == Currency.USD:
+                stats[booking.car_id]["income_usd"] += Decimal(booking.total_amount)
+            else:
+                stats[booking.car_id]["income_gel"] += Decimal(booking.total_amount)
             stats[booking.car_id]["booking_count"] += 1
             stats[booking.car_id]["booked_days"] += (booking.end_date - booking.start_date).days + 1
 
@@ -290,11 +326,12 @@ class AnalyticsService:
                     license_plate=car.license_plate,
                     booking_count=int(stat["booking_count"]),
                     booked_days=int(stat["booked_days"]),
-                    income=Decimal(stat["income"]),
+                    income_usd=Decimal(stat["income_usd"]),
+                    income_gel=Decimal(stat["income_gel"]),
                 ),
             )
 
-        return sorted(ranking, key=lambda item: item.income, reverse=True)
+        return sorted(ranking, key=lambda item: item.booked_days, reverse=True)
 
     def _build_expense_breakdown(
         self,
@@ -302,30 +339,56 @@ class AnalyticsService:
         maintenance_records: list[MaintenanceRecordDTO],
         insurance_payments: list[InsurancePaymentDTO],
     ) -> list[ExpenseBreakdownResponse]:
-        maintenance = self._sum_maintenance_costs(maintenance_records)
-        insurance = self._sum_insurance_costs(insurance_payments)
-        total = maintenance + insurance
+        maint_usd, maint_gel = self._sum_maintenance_costs_by_currency(maintenance_records)
+        ins_usd, ins_gel = self._sum_insurance_costs_by_currency(insurance_payments)
+        total_usd = maint_usd + ins_usd
+        total_gel = maint_gel + ins_gel
         return [
             ExpenseBreakdownResponse(
                 category="maintenance",
-                amount=maintenance,
-                share=self._ratio_decimal(maintenance, total),
+                amount_usd=maint_usd,
+                amount_gel=maint_gel,
+                share_usd=self._ratio_decimal(maint_usd, total_usd),
+                share_gel=self._ratio_decimal(maint_gel, total_gel),
             ),
             ExpenseBreakdownResponse(
                 category="insurance",
-                amount=insurance,
-                share=self._ratio_decimal(insurance, total),
+                amount_usd=ins_usd,
+                amount_gel=ins_gel,
+                share_usd=self._ratio_decimal(ins_usd, total_usd),
+                share_gel=self._ratio_decimal(ins_gel, total_gel),
             ),
         ]
 
-    def _sum_booking_income(self, bookings: Iterable[BookingDTO]) -> Decimal:
-        return sum((Decimal(booking.total_amount) for booking in bookings), _MONEY_ZERO)
+    def _sum_booking_income_by_currency(self, bookings: Iterable[BookingDTO]) -> tuple[Decimal, Decimal]:
+        usd = _MONEY_ZERO
+        gel = _MONEY_ZERO
+        for booking in bookings:
+            if booking.currency == Currency.USD:
+                usd += Decimal(booking.total_amount)
+            else:
+                gel += Decimal(booking.total_amount)
+        return usd, gel
 
-    def _sum_maintenance_costs(self, records: list[MaintenanceRecordDTO]) -> Decimal:
-        return sum((Decimal(record.cost) for record in records), _MONEY_ZERO)
+    def _sum_maintenance_costs_by_currency(self, records: list[MaintenanceRecordDTO]) -> tuple[Decimal, Decimal]:
+        usd = _MONEY_ZERO
+        gel = _MONEY_ZERO
+        for record in records:
+            if record.currency == Currency.USD:
+                usd += Decimal(record.cost)
+            else:
+                gel += Decimal(record.cost)
+        return usd, gel
 
-    def _sum_insurance_costs(self, payments: list[InsurancePaymentDTO]) -> Decimal:
-        return sum((Decimal(payment.amount) for payment in payments), _MONEY_ZERO)
+    def _sum_insurance_costs_by_currency(self, payments: list[InsurancePaymentDTO]) -> tuple[Decimal, Decimal]:
+        usd = _MONEY_ZERO
+        gel = _MONEY_ZERO
+        for payment in payments:
+            if payment.currency == Currency.USD:
+                usd += Decimal(payment.amount)
+            else:
+                gel += Decimal(payment.amount)
+        return usd, gel
 
     def _ratio(self, numerator: int, denominator: int) -> Decimal:
         if denominator == 0:

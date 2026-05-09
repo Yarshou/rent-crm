@@ -1,11 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from db.models import CarStatus, DriveType, FuelType, Transmission
+from db.models import CarStatus, Currency, DriveType, FuelType, Transmission
 from schemas.base import ImmutableDTO
 
-__all__ = ["CarDTO", "CarPhotoDTO", "CarPricingTierDTO"]
+__all__ = ["CarDTO", "CarPhotoDTO", "CarPricingTierDTO", "CarRepairPeriodDTO"]
 
 
 class CarDTO(ImmutableDTO):
@@ -42,3 +42,14 @@ class CarPricingTierDTO(ImmutableDTO):
     car_id: UUID
     min_days: int
     daily_rate: Decimal
+    currency: Currency
+
+
+class CarRepairPeriodDTO(ImmutableDTO):
+    id: UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    car_id: UUID
+    date_from: date
+    date_to: date
+    title: str | None = None

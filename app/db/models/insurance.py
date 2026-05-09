@@ -1,5 +1,6 @@
 from db.base.models import Base
-from sqlalchemy import Column, Date, ForeignKey, Numeric, String, Text, Uuid
+from db.models.common import Currency
+from sqlalchemy import Column, Date, Enum, ForeignKey, Numeric, String, Text, Uuid
 
 __all__ = ["InsurancePayment"]
 
@@ -13,5 +14,6 @@ class InsurancePayment(Base):
     period_start = Column(Date, nullable=False)
     period_end = Column(Date, nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(Enum(Currency, name="currency"), nullable=False)
     provider = Column(String(255), nullable=True)
     notes = Column(Text, nullable=True)

@@ -50,7 +50,7 @@ class BookingService:
                 limit=input.limit,
             )
 
-    async def calculate_total_amount(self, input: BookingTotalInput) -> Decimal:
+    async def calculate_total_amount(self, input: BookingTotalInput) -> tuple[Decimal, str]:
         self._validate_dates(start_date=input.start_date, end_date=input.end_date)
 
         async with self._uow_factory() as uow:
@@ -78,13 +78,16 @@ class BookingService:
             )
 
             amount = input.total_amount
+            currency = input.currency
             if amount is None:
-                amount = await self._calculate_total_amount(
+                amount, currency = await self._calculate_total_amount(
                     uow,
                     car_id=input.car_id,
                     start_date=input.start_date,
                     end_date=input.end_date,
                 )
+            elif currency is None:
+                raise ServiceValidationError("Currency is required when providing a custom total amount.")
 
             booking = await uow.bookings.create(
                 organization_id=input.organization_id,
@@ -94,6 +97,7 @@ class BookingService:
                 renter_name=input.renter_name,
                 renter_phone=input.renter_phone,
                 total_amount=amount,
+                currency=currency,
                 pickup_mileage=None,
                 return_mileage=None,
                 status=BookingStatus.planned,
@@ -162,13 +166,17 @@ class BookingService:
             }
             if input.total_amount is not None:
                 values["total_amount"] = input.total_amount
+                if input.currency is not None:
+                    values["currency"] = input.currency
             elif input.recalculate_total:
-                values["total_amount"] = await self._calculate_total_amount(
+                amount, currency = await self._calculate_total_amount(
                     uow,
                     car_id=target_car_id,
                     start_date=input.start_date,
                     end_date=input.end_date,
                 )
+                values["total_amount"] = amount
+                values["currency"] = currency
 
             updated = await uow.bookings.update(booking.id, **values)
             if updated is None:
@@ -332,12 +340,12 @@ class BookingService:
         car_id: UUID,
         start_date: date,
         end_date: date,
-    ) -> Decimal:
+    ) -> tuple[Decimal, str]:
         rental_days = self._rental_days(start_date=start_date, end_date=end_date)
         tier = await uow.car_pricing_tiers.get_applicable_for_duration(car_id=car_id, rental_days=rental_days)
         if tier is None:
             raise ServiceValidationError("No pricing tier is configured for this booking duration.")
-        return tier.daily_rate * rental_days
+        return tier.daily_rate * rental_days, tier.currency
 
     async def _ensure_no_overlap(
         self,

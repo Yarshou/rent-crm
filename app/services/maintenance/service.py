@@ -67,6 +67,7 @@ class MaintenanceService:
                 description=input.description,
                 mileage_at_service=input.mileage_at_service,
                 cost=input.cost,
+                currency=input.currency,
                 provider=input.provider,
             )
             await self._update_car_mileage_if_needed(uow, car=car, mileage=input.mileage_at_service)

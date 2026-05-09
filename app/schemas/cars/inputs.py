@@ -1,8 +1,9 @@
 from collections.abc import Sequence
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from db.models import CarStatus, DriveType, FuelType, Transmission
+from db.models import CarStatus, Currency, DriveType, FuelType, Transmission
 from schemas.base import MutableDTO
 
 __all__ = [
@@ -17,6 +18,9 @@ __all__ = [
     "CarPricingTierInput",
     "CarPricingTiersListInput",
     "CarPricingTiersReplaceInput",
+    "CarRepairPeriodCreateInput",
+    "CarRepairPeriodDeleteInput",
+    "CarRepairPeriodListInput",
     "CarStatusUpdateInput",
     "CarUpdateInput",
 ]
@@ -30,6 +34,7 @@ class CarPhotoInput(MutableDTO):
 class CarPricingTierInput(MutableDTO):
     min_days: int
     daily_rate: Decimal
+    currency: Currency
 
 
 class CarGetInput(MutableDTO):
@@ -117,3 +122,22 @@ class CarPricingTiersReplaceInput(MutableDTO):
     organization_id: UUID
     car_id: UUID
     pricing_tiers: Sequence[CarPricingTierInput]
+
+
+class CarRepairPeriodCreateInput(MutableDTO):
+    organization_id: UUID
+    car_id: UUID
+    date_from: date
+    date_to: date
+    title: str | None = None
+
+
+class CarRepairPeriodListInput(MutableDTO):
+    organization_id: UUID
+    car_id: UUID
+
+
+class CarRepairPeriodDeleteInput(MutableDTO):
+    organization_id: UUID
+    car_id: UUID
+    repair_period_id: UUID

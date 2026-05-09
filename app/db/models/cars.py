@@ -1,16 +1,18 @@
 import enum
 
 from db.base.models import Base
-from sqlalchemy import Column, Enum, ForeignKey, Integer, Numeric, String, UniqueConstraint, Uuid
+from db.models.common import Currency
+from sqlalchemy import Column, Date, Enum, ForeignKey, Integer, Numeric, String, UniqueConstraint, Uuid
 
 __all__ = [
     "Car",
     "CarPhoto",
     "CarPricingTier",
+    "CarRepairPeriod",
+    "CarStatus",
     "DriveType",
     "FuelType",
     "Transmission",
-    "CarStatus",
 ]
 
 
@@ -74,3 +76,13 @@ class CarPricingTier(Base):
     car_id = Column(Uuid, ForeignKey("cars.id", ondelete="CASCADE"), nullable=False, index=True)
     min_days = Column(Integer, nullable=False)
     daily_rate = Column(Numeric(12, 2), nullable=False)
+    currency = Column(Enum(Currency, name="currency"), nullable=False)
+
+
+class CarRepairPeriod(Base):
+    __tablename__ = "car_repair_periods"
+
+    car_id = Column(Uuid, ForeignKey("cars.id", ondelete="CASCADE"), nullable=False, index=True)
+    date_from = Column(Date, nullable=False)
+    date_to = Column(Date, nullable=False)
+    title = Column(String(200), nullable=True)

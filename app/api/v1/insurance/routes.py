@@ -70,6 +70,7 @@ async def create_insurance_payment(
             period_start=payload.period_start,
             period_end=payload.period_end,
             amount=payload.amount,
+            currency=payload.currency,
             provider=payload.provider,
             notes=payload.notes,
         ),

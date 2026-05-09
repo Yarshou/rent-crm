@@ -23,6 +23,10 @@ from schemas.cars import (
     CarPricingTierInput,
     CarPricingTiersListInput,
     CarPricingTiersReplaceInput,
+    CarRepairPeriodCreateInput,
+    CarRepairPeriodDeleteInput,
+    CarRepairPeriodDTO,
+    CarRepairPeriodListInput,
     CarStatusUpdateInput,
     CarUpdateInput,
 )
@@ -101,6 +105,7 @@ class CarService:
                     car_id=car.id,
                     min_days=tier.min_days,
                     daily_rate=tier.daily_rate,
+                    currency=tier.currency,
                 )
 
             await uow.commit()
@@ -212,11 +217,50 @@ class CarService:
                     car_id=input.car_id,
                     min_days=tier.min_days,
                     daily_rate=tier.daily_rate,
+                    currency=tier.currency,
                 )
                 for tier in input.pricing_tiers
             ]
             await uow.commit()
             return created_tiers
+
+    async def list_repair_periods(self, input: CarRepairPeriodListInput) -> list[CarRepairPeriodDTO]:
+        async with self._uow_factory() as uow:
+            await self._get_car(uow, organization_id=input.organization_id, car_id=input.car_id)
+            return await uow.car_repair_periods.list_for_car(input.car_id)
+
+    async def create_repair_period(self, input: CarRepairPeriodCreateInput) -> CarRepairPeriodDTO:
+        if input.date_to < input.date_from:
+            raise ServiceValidationError("date_to cannot be earlier than date_from.")
+
+        async with self._uow_factory() as uow:
+            await self._get_car_for_update(uow, organization_id=input.organization_id, car_id=input.car_id)
+
+            has_overlap = await uow.bookings.has_overlapping_booking(
+                organization_id=input.organization_id,
+                car_id=input.car_id,
+                start_date=input.date_from,
+                end_date=input.date_to,
+            )
+            if has_overlap:
+                raise ServiceConflictError("Repair period overlaps with an existing active or planned booking.")
+
+            period = await uow.car_repair_periods.create(
+                car_id=input.car_id,
+                date_from=input.date_from,
+                date_to=input.date_to,
+                title=input.title,
+            )
+            await uow.commit()
+            return period
+
+    async def delete_repair_period(self, input: CarRepairPeriodDeleteInput) -> None:
+        async with self._uow_factory() as uow:
+            await self._get_car_for_update(uow, organization_id=input.organization_id, car_id=input.car_id)
+            deleted = await uow.car_repair_periods.delete_by_id(input.repair_period_id)
+            if not deleted:
+                raise ServiceNotFoundError("Repair period not found.")
+            await uow.commit()
 
     async def delete(self, input: CarDeleteInput) -> None:
         async with self._uow_factory() as uow:

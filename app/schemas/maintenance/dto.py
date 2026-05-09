@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from db.models import ServiceType
+from db.models import Currency, ServiceType
 from schemas.base import ImmutableDTO
 
 __all__ = ["MaintenanceRecordDTO", "MaintenanceScheduleDTO"]
@@ -19,6 +19,7 @@ class MaintenanceRecordDTO(ImmutableDTO):
     description: str
     mileage_at_service: int
     cost: Decimal
+    currency: Currency
     provider: str | None = None
 
 

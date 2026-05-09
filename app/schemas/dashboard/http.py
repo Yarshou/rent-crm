@@ -22,9 +22,12 @@ class BookingSummaryResponse(BaseModel):
 
 
 class MoneySummaryResponse(BaseModel):
-    income_mtd: Decimal
-    expenses_mtd: Decimal
-    net_mtd: Decimal
+    income_mtd_usd: Decimal
+    income_mtd_gel: Decimal
+    expenses_mtd_usd: Decimal
+    expenses_mtd_gel: Decimal
+    net_mtd_usd: Decimal
+    net_mtd_gel: Decimal
 
 
 class DashboardSummaryResponse(BaseModel):

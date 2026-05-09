@@ -2,7 +2,7 @@ from collections.abc import Callable
 from types import TracebackType
 
 from repositories.bookings import BookingRepository
-from repositories.cars import CarPhotoRepository, CarPricingTierRepository, CarRepository
+from repositories.cars import CarPhotoRepository, CarPricingTierRepository, CarRepairPeriodRepository, CarRepository
 from repositories.insurance import InsurancePaymentRepository
 from repositories.maintenance import MaintenanceRecordRepository, MaintenanceScheduleRepository
 from repositories.organizations import OrganizationRepository
@@ -31,6 +31,7 @@ class UnitOfWork:
         self.cars = CarRepository(self.session)
         self.car_photos = CarPhotoRepository(self.session)
         self.car_pricing_tiers = CarPricingTierRepository(self.session)
+        self.car_repair_periods = CarRepairPeriodRepository(self.session)
         self.bookings = BookingRepository(self.session)
         self.maintenance_records = MaintenanceRecordRepository(self.session)
         self.maintenance_schedules = MaintenanceScheduleRepository(self.session)

@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from db.models import BookingStatus
+from db.models import BookingStatus, Currency
 from schemas.base import ImmutableDTO
 
 __all__ = ["BookingDTO"]
@@ -19,6 +19,7 @@ class BookingDTO(ImmutableDTO):
     renter_name: str
     renter_phone: str
     total_amount: Decimal
+    currency: Currency
     pickup_mileage: int | None = None
     return_mileage: int | None = None
     status: BookingStatus

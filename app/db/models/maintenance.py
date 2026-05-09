@@ -1,6 +1,7 @@
 import enum
 
 from db.base.models import Base
+from db.models.common import Currency
 from sqlalchemy import Boolean, CheckConstraint, Column, Date, Enum, ForeignKey, Integer, Numeric, String, Text, Uuid
 
 __all__ = ["MaintenanceRecord", "MaintenanceSchedule", "ServiceType"]
@@ -25,6 +26,7 @@ class MaintenanceRecord(Base):
     description = Column(Text, nullable=False)
     mileage_at_service = Column(Integer, nullable=False)
     cost = Column(Numeric(12, 2), nullable=False)
+    currency = Column(Enum(Currency, name="currency"), nullable=False)
     provider = Column(String(255), nullable=True)
 
 

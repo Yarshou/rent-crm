@@ -1,10 +1,12 @@
-from .dto import CarDTO, CarPhotoDTO, CarPricingTierDTO
+from .dto import CarDTO, CarPhotoDTO, CarPricingTierDTO, CarRepairPeriodDTO
 from .http import (
     CarCreateRequest,
     CarPhotoRequest,
     CarPhotoResponse,
     CarPricingTierRequest,
     CarPricingTierResponse,
+    CarRepairPeriodCreateRequest,
+    CarRepairPeriodResponse,
     CarResponse,
     CarStatusUpdateRequest,
     CarUpdateRequest,
@@ -21,6 +23,9 @@ from .inputs import (
     CarPricingTierInput,
     CarPricingTiersListInput,
     CarPricingTiersReplaceInput,
+    CarRepairPeriodCreateInput,
+    CarRepairPeriodDeleteInput,
+    CarRepairPeriodListInput,
     CarStatusUpdateInput,
     CarUpdateInput,
 )
@@ -45,6 +50,12 @@ __all__ = [
     "CarPricingTierResponse",
     "CarPricingTiersListInput",
     "CarPricingTiersReplaceInput",
+    "CarRepairPeriodCreateInput",
+    "CarRepairPeriodCreateRequest",
+    "CarRepairPeriodDeleteInput",
+    "CarRepairPeriodDTO",
+    "CarRepairPeriodListInput",
+    "CarRepairPeriodResponse",
     "CarResponse",
     "CarStatusUpdateInput",
     "CarStatusUpdateRequest",

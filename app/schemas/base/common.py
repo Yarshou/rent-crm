@@ -17,3 +17,4 @@ class BaseEntityResponse(BaseModel):
 
 class AmountResponse(BaseModel):
     total_amount: Decimal
+    currency: str

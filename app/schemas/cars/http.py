@@ -1,7 +1,8 @@
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from db.models import CarStatus, DriveType, FuelType, Transmission
+from db.models import CarStatus, Currency, DriveType, FuelType, Transmission
 from pydantic import BaseModel, Field
 from schemas.base.common import BaseEntityResponse
 
@@ -11,6 +12,8 @@ __all__ = [
     "CarPhotoResponse",
     "CarPricingTierRequest",
     "CarPricingTierResponse",
+    "CarRepairPeriodCreateRequest",
+    "CarRepairPeriodResponse",
     "CarResponse",
     "CarStatusUpdateRequest",
     "CarUpdateRequest",
@@ -25,6 +28,7 @@ class CarPhotoRequest(BaseModel):
 class CarPricingTierRequest(BaseModel):
     min_days: int = Field(gt=0)
     daily_rate: Decimal = Field(ge=0)
+    currency: Currency
 
 
 class CarCreateRequest(BaseModel):
@@ -85,3 +89,17 @@ class CarPricingTierResponse(BaseEntityResponse):
     car_id: UUID
     min_days: int
     daily_rate: Decimal
+    currency: Currency
+
+
+class CarRepairPeriodCreateRequest(BaseModel):
+    date_from: date
+    date_to: date
+    title: str | None = Field(default=None, max_length=200)
+
+
+class CarRepairPeriodResponse(BaseEntityResponse):
+    car_id: UUID
+    date_from: date
+    date_to: date
+    title: str | None = None

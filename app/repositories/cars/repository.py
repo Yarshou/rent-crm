@@ -1,12 +1,14 @@
 from decimal import Decimal
 from uuid import UUID
 
-from db.models import Car, CarPhoto, CarPricingTier, CarStatus
+from datetime import date
+
+from db.models import Car, CarPhoto, CarPricingTier, CarRepairPeriod, CarStatus
 from repositories import BaseRepository
-from schemas.cars import CarDTO, CarPhotoDTO, CarPricingTierDTO
+from schemas.cars import CarDTO, CarPhotoDTO, CarPricingTierDTO, CarRepairPeriodDTO
 from sqlalchemy import delete, desc, func, or_, select
 
-__all__ = ["CarPhotoRepository", "CarPricingTierRepository", "CarRepository"]
+__all__ = ["CarPhotoRepository", "CarPricingTierRepository", "CarRepairPeriodRepository", "CarRepository"]
 
 
 class CarRepository(BaseRepository[Car, CarDTO]):
@@ -183,3 +185,34 @@ class CarPricingTierRepository(BaseRepository[CarPricingTier, CarPricingTierDTO]
     async def delete_for_car(self, car_id: UUID) -> int:
         result = await self.session.execute(delete(CarPricingTier).where(CarPricingTier.car_id == car_id))
         return result.rowcount
+
+
+class CarRepairPeriodRepository(BaseRepository[CarRepairPeriod, CarRepairPeriodDTO]):
+    model = CarRepairPeriod
+    dto = CarRepairPeriodDTO
+
+    async def list_for_car(self, car_id: UUID) -> list[CarRepairPeriodDTO]:
+        result = await self.session.execute(
+            select(CarRepairPeriod)
+            .where(CarRepairPeriod.car_id == car_id)
+            .order_by(CarRepairPeriod.date_from),
+        )
+        return self._to_dtos(result.scalars().all())
+
+    async def list_for_organization_in_range(
+        self,
+        organization_id: UUID,
+        date_from: date,
+        date_to: date,
+    ) -> list[CarRepairPeriodDTO]:
+        result = await self.session.execute(
+            select(CarRepairPeriod)
+            .join(Car, Car.id == CarRepairPeriod.car_id)
+            .where(
+                Car.organization_id == organization_id,
+                CarRepairPeriod.date_from <= date_to,
+                CarRepairPeriod.date_to >= date_from,
+            )
+            .order_by(CarRepairPeriod.date_from),
+        )
+        return self._to_dtos(result.scalars().all())

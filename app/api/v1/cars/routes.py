@@ -22,6 +22,11 @@ from schemas import (
     CarPricingTierResponse,
     CarPricingTiersListInput,
     CarPricingTiersReplaceInput,
+    CarRepairPeriodCreateInput,
+    CarRepairPeriodCreateRequest,
+    CarRepairPeriodDeleteInput,
+    CarRepairPeriodListInput,
+    CarRepairPeriodResponse,
     CarResponse,
     CarStatusUpdateInput,
     CarStatusUpdateRequest,
@@ -212,3 +217,55 @@ async def replace_car_pricing_tiers(
         ),
     )
     return [CarPricingTierResponse.model_validate(tier) for tier in tiers]
+
+
+@router.get("/{car_id}/repair-periods", response_model=list[CarRepairPeriodResponse])
+async def list_car_repair_periods(
+    car_id: UUID,
+    organization: Annotated[OrganizationDTO, Depends(get_current_organization)],
+    service: Annotated[CarService, Depends(get_car_service)],
+) -> list[CarRepairPeriodResponse]:
+    periods = await service.list_repair_periods(
+        CarRepairPeriodListInput(organization_id=organization.id, car_id=car_id),
+    )
+    return [CarRepairPeriodResponse.model_validate(period) for period in periods]
+
+
+@router.post(
+    "/{car_id}/repair-periods",
+    response_model=CarRepairPeriodResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_car_repair_period(
+    car_id: UUID,
+    payload: CarRepairPeriodCreateRequest,
+    organization: Annotated[OrganizationDTO, Depends(get_current_organization)],
+    service: Annotated[CarService, Depends(get_car_service)],
+) -> CarRepairPeriodResponse:
+    period = await service.create_repair_period(
+        CarRepairPeriodCreateInput(
+            organization_id=organization.id,
+            car_id=car_id,
+            date_from=payload.date_from,
+            date_to=payload.date_to,
+            title=payload.title,
+        ),
+    )
+    return CarRepairPeriodResponse.model_validate(period)
+
+
+@router.delete("/{car_id}/repair-periods/{repair_period_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_car_repair_period(
+    car_id: UUID,
+    repair_period_id: UUID,
+    organization: Annotated[OrganizationDTO, Depends(get_current_organization)],
+    service: Annotated[CarService, Depends(get_car_service)],
+) -> Response:
+    await service.delete_repair_period(
+        CarRepairPeriodDeleteInput(
+            organization_id=organization.id,
+            car_id=car_id,
+            repair_period_id=repair_period_id,
+        ),
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
